@@ -2,8 +2,10 @@ const WebSocket = require('ws')
 const profanity = require('./profanity')
 const config = require('./config')
 
+// init server side websocket
+const wss = new WebSocket.Server({ port: config.WS_PORT })
 // all connected users
-const users = []
+let users = []
 
 // last messages, only store last 50
 var latestMessages = []
@@ -27,7 +29,6 @@ const processCmd = (cmd) => {
       let user = users.find(u => u.name === cmd.user)
       if (user) {
         let now = new Date()
-        console.log(`now: ${now}, user: ${user.startAt}`)
         let duration = now.getTime() - user.startAt.getTime()
         return formatDuration(duration)
       }
@@ -55,6 +56,7 @@ const popular = () => {
   let popular = 0
   latestMessages.filter(m => now - m.at.getTime() < config.POPULAR_WORD_DURATION)
     .flatMap(m => m.msg.split(' '))
+    .filter(w => w.split('*').join('') !== '') // filter profanity words
     .forEach(w => {
       let count = 1
       if (popularity.has(w)) {
@@ -70,10 +72,7 @@ const popular = () => {
   return mostPopularWord
 }
 
-const start = (options) => {
-  // init server side websocket
-  const wss = new WebSocket.Server(options)
-
+const start = () => {
   // Broadcast to all.
   wss.broadcast = (data) => {
     wss.clients.forEach((client) => {
@@ -96,17 +95,20 @@ const start = (options) => {
             users.push(user)
             ws.user = user
           }
+          ws.send(`${user.name} connected`)
           break
 
         case 'msg':
-          let time = new Date(json.data.at)
-          let msg = profanity.check(json.data.message)
-          response = `[${time.toLocaleString()}] ${ws.user.name}: ${msg}`
-          latestMessages.push({ user: ws.user.name, msg: msg, at: time })
+          if (ws.user) {
+            let time = new Date(json.data.at)
+            let msg = profanity.check(json.data.message)
+            response = `[${time.toLocaleString()}] ${ws.user.name}: ${msg}`
+            latestMessages.push({ user: ws.user.name, msg: msg, at: time })
 
-          // keep only last 50 messages
-          if (latestMessages.length > 50) {
-            latestMessages = latestMessages.slice(-(latestMessages.length - 50 + 1), latestMessages.length + 1)
+            // keep only last 50 messages
+            if (latestMessages.length > 50) {
+              latestMessages = latestMessages.slice(-(latestMessages.length - 50 + 1), latestMessages.length + 1)
+            }
           }
           break
 
@@ -121,8 +123,16 @@ const start = (options) => {
 
       // only when response has something to send
       if (response) {
-        wss.broadcast(response)
+        if (json.action !== 'cmd') {
+          wss.broadcast(response)
+        } else {
+          ws.send(response)
+        }
       }
+    })
+
+    ws.on('close', () => {
+      users = users.filter(u => ws.user.name !== u.name)
     })
 
     // when a client connected, send the latest messages to client
@@ -134,3 +144,4 @@ const start = (options) => {
 }
 
 exports.start = start
+exports.users = users

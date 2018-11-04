@@ -1,20 +1,20 @@
 const inquirer = require('inquirer')
-const config = require('./config')
 const wsServer = require('./wsServer')
 const WsClient = require('./wsClient')
 
 // start server side websocket
-wsServer.start({ port: config.WS_PORT })
+wsServer.start()
 
 const run = async () => {
   const { name } = await askName()
+  let wsClient = new WsClient()
   // start connect client side websocket after user has input name
-  WsClient.start(name)
+  wsClient.start(name, (data) => console.log(data), error => console.error(error))
   while (true) {
     const answers = await askChat()
     const { message } = answers
     // send messages through websocket
-    WsClient.sendMsg(message)
+    wsClient.sendMsg(message)
   }
 }
 

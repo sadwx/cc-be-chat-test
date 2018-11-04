@@ -1,7 +1,7 @@
 const config = require('./config')
 
 // sort the profanity words by it's length, longer words comes first
-const profanityList = config.PROFANITY_LIST.splice().sort((a, b) => {
+const profanityList = config.PROFANITY_LIST.slice().sort((a, b) => {
   return a.length !== b.length ? b.length - a.length : a.localeCompare(b)
 })
 
