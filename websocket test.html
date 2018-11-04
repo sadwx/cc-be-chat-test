@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>WebSocket Test</title>
+  <script language="javascript" type="text/javascript">
+    var output;
+    var wsUri;
+    var sn = 0;
+    var connectBtn;
+    var sendBtn;
+    var statsBtn;
+    var popularBtn;
+    var websocket;
+    var lastMsgTime = new Date();
+
+    function init() {
+      connectBtn = document.getElementById("connect");
+      sendBtn = document.getElementById("send");
+      statsBtn = document.getElementById("stats");
+      popularBtn = document.getElementById("popular");
+      output = document.getElementById("output");
+    }
+
+    function testWebSocket() {
+      lastMsgTime = new Date();
+      websocket = new WebSocket(wsUri);
+      websocket.onopen = function (evt) {
+        onOpen(evt)
+      };
+      websocket.onclose = function (evt) {
+        onClose(evt)
+      };
+      websocket.onmessage = function (evt) {
+        onMessage(evt)
+      };
+      websocket.onerror = function (evt) {
+        onError(evt)
+      };
+    }
+
+    function nowTimeString() {
+      return new Date().toLocaleString();
+    }
+
+    function onOpen(evt) {
+      writeToScreen("(" + nowTimeString() + ") CONNECTED TO: " + wsUri);
+      connectBtn.textContent = "disconnect";
+      connectBtn.type = "reset";
+      sendBtn.disabled = false;
+      statsBtn.disabled = false;
+      popularBtn.disabled = false;
+      // doSend("WebSocket rocks");
+      websocket.send(JSON.stringify({
+        action: 'open',
+        data: {
+          user: document.getElementById('user').value
+        }
+      }))
+      setTimeout(() => statsClick(), 3000)
+    }
+
+    function onClose(evt) {
+      writeToScreen("(" + nowTimeString() + ") DISCONNECTED FROM: " + wsUri);
+      connectBtn.textContent = "connect";
+      connectBtn.type = "submit";
+      sendBtn.disabled = true;
+    }
+
+    function onMessage(evt) {
+      var diff = new Date() - lastMsgTime;
+
+      if (diff >= 90000) {
+        writeToScreen('<span style="color: blue;">OVER ' + diff / 1000 + ' SECONDS!</span>');
+      }
+
+      lastMsgTime = new Date();
+      writeToScreen('<span style="color: blue;">(' + nowTimeString() + ') RESPONSE: ' + evt.data + '</span>');
+      // websocket.close();
+    }
+
+    function onError(evt) {
+      writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+    }
+
+    function doSend(message) {
+      writeToScreen("(" + nowTimeString() + ") SENT: " + message);
+      websocket.send(message);
+    }
+
+    function writeToScreen(message) {
+      if (output.childElementCount > 100) {
+        clearOutput(100);
+      }
+
+      var pre = document.createElement("p");
+      pre.style.wordWrap = "break-word";
+      pre.innerHTML = message;
+      output.appendChild(pre);
+      pre.scrollIntoView();
+    }
+
+    function connectClick() {
+      if (connectBtn.type == "submit") {
+        var element = document.getElementById("wsUri");
+        document.title = element.options[element.selectedIndex].text;
+        wsUri = element.value;
+        testWebSocket();
+      } else {
+        websocket.close();
+        document.title = "Websocket Test";
+      }
+    }
+
+    function sendClick() {
+      let msg = document.getElementById("msg").value
+      console.log(msg)
+      var data = {
+        action: 'msg',
+        data: {
+          at: new Date(),
+          message: msg
+        }
+      }
+      doSend(JSON.stringify(data))
+    }
+
+    function clearClick() {
+      clearOutput()
+    }
+
+    function popularClick() {
+      websocket.send(JSON.stringify({
+        action: 'cmd',
+        data: {
+          type: 'popular'
+        }
+      }))
+    }
+
+    function statsClick() {
+      websocket.send(JSON.stringify({
+        action: 'cmd',
+        data: {
+          type: 'stats',
+          user: document.getElementById('user').value
+        }
+      }))
+    }
+
+    function clearOutput(count) {
+      if (!count) {
+        count = 0
+      }
+      while (output.childElementCount > count) {
+        output.removeChild(output.firstChild)
+      }
+    }
+
+    window.addEventListener("load", init, false)
+  </script>
+</head>
+
+<body>
+  <h2>WebSocket Test</h2>
+  <div id="output"></div>
+  <div>
+    User:
+    <input type='text' id="user">
+    Message:
+    <input type="text" id="msg">
+    <br />
+    <select id="wsUri">
+      <option value="ws://localhost:3310">localhost</option>
+    </select>
+    <button id="connect" type="submit" onclick="connectClick()">connect</button>
+    <button id="send" type="button" onclick="sendClick()" disabled=true>send</button>
+    <button id="stats" type="button" onclick="statsClick()" disabled=true>stats</button>
+    <button id="popular" type="button" onclick="popularClick()" disabled=true>popular</button>
+    <button id="clear" type="reset" onclick="clearClick()">clear</button>
+  </div>
+
+</body>
+
+</html>
